@@ -1,0 +1,213 @@
+<UserControl x:Class="OllamaDashboard.Views.ChatView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:OllamaDashboard.ViewModels"
+             xmlns:models="clr-namespace:OllamaDashboard.Models"
+             mc:Ignorable="d"
+             AllowDrop="True"
+             Background="{StaticResource BackgroundBrush}"
+             d:DataContext="{d:DesignInstance Type=vm:ChatViewModel}"
+             d:DesignHeight="600" d:DesignWidth="900">
+
+    <Grid Margin="32,24,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="PDF Chat" Style="{StaticResource HeadingLarge}" />
+                <TextBlock Text="Lade ein PDF und stelle Fragen zum Inhalt"
+                           Style="{StaticResource BodyMuted}" Margin="0,4,0,0" />
+            </StackPanel>
+            <Button Content="Neuer Chat" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding NewChatCommand}"
+                    HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- PDF drop zone / status -->
+        <Border Grid.Row="1" x:Name="DropZone"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource CornerMd}"
+                Padding="14,12" Margin="0,0,0,16"
+                AllowDrop="True"
+                DragOver="DropZone_DragOver"
+                Drop="DropZone_Drop">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPdf}" Value="False">
+                            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                            <Setter Property="BorderThickness" Value="1.5" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <!-- Empty state -->
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding HasPdf,
+                                         Converter={StaticResource InverseBool},
+                                         ConverterParameter=toVis}">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasPdf}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Path Data="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2 L14 8 L20 8"
+                          Stroke="{StaticResource TextTertiaryBrush}" StrokeThickness="1.6"
+                          Width="20" Height="20" Stretch="Uniform" Margin="0,0,12,0"
+                          VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding PdfStatus}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                    <Button Content="PDF auswählen" Style="{StaticResource SecondaryButton}"
+                            Command="{Binding PickPdfCommand}"
+                            Margin="16,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Loaded state -->
+                <Grid Visibility="{Binding HasPdf, Converter={StaticResource BoolToVisibility}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0"
+                          Data="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2 L14 8 L20 8"
+                          Stroke="{StaticResource SuccessBrush}" StrokeThickness="1.8"
+                          Width="20" Height="20" Stretch="Uniform" Margin="0,0,12,0"
+                          VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding LoadedPdf.FileName}" FontSize="13" FontWeight="Medium" />
+                        <TextBlock Text="{Binding PdfStatus}" Style="{StaticResource BodyMuted}" />
+                    </StackPanel>
+                    <Border Grid.Column="2"
+                            Background="{StaticResource SuccessSubtleBrush}"
+                            CornerRadius="{StaticResource CornerSm}"
+                            Padding="8,3" VerticalAlignment="Center"
+                            Margin="0,0,8,0">
+                        <TextBlock Text="Bereit" FontSize="11" FontWeight="Medium"
+                                   Foreground="{StaticResource SuccessBrush}" />
+                    </Border>
+                    <Button Grid.Column="3" Content="Entfernen"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding ClearPdfCommand}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Message thread -->
+        <ScrollViewer Grid.Row="2" x:Name="MessageScroller"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="0,0,8,0">
+            <ItemsControl ItemsSource="{Binding Messages}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type models:ChatMessage}">
+                        <Grid Margin="0,0,0,16">
+                            <!-- User bubble (right-aligned, subtle bg) -->
+                            <Border Background="{StaticResource UserBubbleBrush}"
+                                    CornerRadius="{StaticResource CornerLg}"
+                                    Padding="14,10"
+                                    HorizontalAlignment="Right"
+                                    MaxWidth="640"
+                                    Visibility="{Binding IsUser, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding Content}"
+                                           FontSize="14" LineHeight="22"
+                                           TextWrapping="Wrap" />
+                            </Border>
+
+                            <!-- Assistant bubble (left, plain) -->
+                            <StackPanel HorizontalAlignment="Left" MaxWidth="720"
+                                        Visibility="{Binding IsAssistant, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding Content}"
+                                           FontSize="14" LineHeight="24"
+                                           TextWrapping="Wrap"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                <StackPanel Orientation="Horizontal"
+                                            Margin="0,6,0,0"
+                                            Visibility="{Binding IsStreaming, Converter={StaticResource BoolToVisibility}}">
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource TextTertiaryBrush}" Margin="0,0,4,0" />
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource TextTertiaryBrush}" Margin="0,0,4,0" />
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource TextTertiaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- System message (centered hint) -->
+                            <Border HorizontalAlignment="Center"
+                                    Background="{StaticResource SurfaceBrush}"
+                                    CornerRadius="{StaticResource CornerLg}"
+                                    Padding="12,6"
+                                    Visibility="{Binding IsSystem, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding Content}"
+                                           FontSize="12"
+                                           Foreground="{StaticResource TextTertiaryBrush}" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Input bar -->
+        <Border Grid.Row="3" Margin="0,16,0,0"
+                Background="{StaticResource BackgroundBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource CornerLg}"
+                Padding="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="InputBox" Grid.Column="0"
+                         Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         MinHeight="40" MaxHeight="160"
+                         Padding="10,10"
+                         VerticalContentAlignment="Center"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         FontSize="14"
+                         KeyDown="InputBox_KeyDown" />
+
+                <Button Grid.Column="1"
+                        Margin="0,0,4,0"
+                        VerticalAlignment="Bottom"
+                        Height="36" MinWidth="74">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                            <Setter Property="Command" Value="{Binding SendCommand}" />
+                            <Setter Property="Content" Value="Senden" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                    <Setter Property="Command" Value="{Binding CancelCommand}" />
+                                    <Setter Property="Content" Value="Stop" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

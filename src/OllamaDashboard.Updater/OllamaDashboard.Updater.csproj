@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>OllamaDashboard.Updater</RootNamespace>
+    <AssemblyName>OllamaDashboard.Updater</AssemblyName>
+    <Version>0.1.0</Version>
+    <!-- Single-file publish keeps the installer simple. -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+</Project>

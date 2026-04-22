@@ -1,0 +1,53 @@
+# Cursor AI Rules — Ollama Dashboard
+
+You are working on a WPF (.NET 8) desktop application with MVVM.
+
+## Stack
+- **UI**: WPF with XAML, CommunityToolkit.Mvvm for [ObservableProperty] / [RelayCommand] source generators
+- **DI**: Microsoft.Extensions.Hosting + DependencyInjection, bootstrapped in `App.xaml.cs`
+- **HTTP**: `HttpClient` via `AddHttpClient<TService>()` — do **not** new up clients manually
+- **Logging**: Serilog via `ILogger<T>` injection
+- **PDF**: PdfPig for reading, QuestPDF for writing
+- **Ollama**: Direct REST against localhost:11434, NDJSON streaming
+
+## Code conventions
+
+### ViewModels
+- Inherit `ObservableObject` and mark `partial` — the toolkit generator requires it
+- Use `[ObservableProperty] private string _fieldName;` (underscore prefix, public auto-generated)
+- Use `[RelayCommand] private async Task DoThingAsync()` — command is auto-generated as `DoThingCommand`
+- For computed-like properties, override `partial void On{PropertyName}Changed(T value)` to notify dependents
+- Never put UI logic (MessageBox, OpenFileDialog) into services — only into ViewModels
+
+### XAML
+- Reference design tokens only from `Themes/Colors.xaml` and `Themes/Styles.xaml`
+- Never hardcode colors or radii in individual views
+- Use `{StaticResource ...}` everywhere, never `{DynamicResource}` unless runtime-theme-switching
+- All user-facing text in German
+
+### Services
+- One interface per service, placed next to the implementation
+- All I/O is `async` with a `CancellationToken` parameter
+- Streaming APIs use `IAsyncEnumerable<T>` — never `IObservable<T>` or callbacks
+- Never call `.Result` or `.Wait()` — it deadlocks WPF's dispatcher
+
+### File paths
+- User data: `%AppData%\OllamaDashboard\` (settings.json, logs/)
+- Temp staging for updates: `%TEMP%\OllamaDashboardUpdate\`
+- Read-only assets: relative to `AppContext.BaseDirectory`
+
+### Error handling
+- UI code catches, logs, and shows MessageBox
+- Services log and rethrow — don't swallow exceptions silently
+- Update / network failures must never crash the app — `UpdateCheckResult.ErrorMessage` carries them
+
+### Ollama quirks
+- `/api/chat` returns NDJSON (one JSON object per line, not a JSON array)
+- `done: true` signals the final chunk
+- Context-window overrun returns a 500 error, not a truncation signal — validate before sending
+- The server blocks the request until the model is loaded on first use → be generous with timeouts
+
+### Update flow
+- Main app never overwrites its own files — delegates to `OllamaDashboard.Updater.exe`
+- Updater is a separate project, published alongside the main app
+- Do not modify the handshake protocol (`--pid --source --target --relaunch`) without updating both sides
