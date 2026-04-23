@@ -8,143 +8,303 @@
              AllowDrop="True"
              Background="{StaticResource BackgroundBrush}"
              d:DataContext="{d:DesignInstance Type=vm:ScriptExtractorViewModel}"
-             d:DesignHeight="600" d:DesignWidth="900">
+             d:DesignHeight="800" d:DesignWidth="900">
 
-    <Grid Margin="32,24,32,24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="32,24,32,24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />   <!-- Row 0: Header -->
+                <RowDefinition Height="Auto" />   <!-- Row 1: Main PDF drop zone -->
+                <RowDefinition Height="Auto" />   <!-- Row 2: Advanced options card -->
+                <RowDefinition Height="Auto" />   <!-- Row 3: Detail slider + buttons -->
+                <RowDefinition Height="Auto" />   <!-- Row 4: Model recommendation banner -->
+                <RowDefinition Height="300" />    <!-- Row 5: Result preview (fixed min height) -->
+                <RowDefinition Height="Auto" />   <!-- Row 6: Export row -->
+            </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="Skript-Extraktor" Style="{StaticResource HeadingLarge}" />
-            <TextBlock Text="Extrahiere den prüfungsrelevanten Stoff aus deinem Skriptum"
-                       Style="{StaticResource BodyMuted}" Margin="0,4,0,0" />
-        </StackPanel>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- Row 0 · Header                                                  -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                <TextBlock Text="Skript-Extraktor" Style="{StaticResource HeadingLarge}" />
+                <TextBlock Text="Extrahiere den prüfungsrelevanten Stoff aus deinem Skriptum"
+                           Style="{StaticResource BodyMuted}" Margin="0,4,0,0" />
+            </StackPanel>
 
-        <!-- Drop zone -->
-        <Border Grid.Row="1" x:Name="DropZone"
-                Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderStrongBrush}"
-                BorderThickness="1.5"
-                CornerRadius="{StaticResource CornerMd}"
-                Padding="14,12" Margin="0,0,0,16"
-                AllowDrop="True"
-                DragOver="DropZone_DragOver"
-                Drop="DropZone_Drop">
-            <Grid>
-                <!-- Empty state -->
-                <StackPanel Orientation="Horizontal"
-                            Visibility="{Binding HasPdf,
-                                         Converter={StaticResource InverseBool},
-                                         ConverterParameter=toVis}">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasPdf}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <TextBlock Text="{Binding Status}"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center" />
-                    <Button Content="PDF auswählen" Style="{StaticResource SecondaryButton}"
-                            Command="{Binding PickPdfCommand}"
-                            Margin="16,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
-
-                <!-- Loaded state -->
-                <Grid Visibility="{Binding HasPdf, Converter={StaticResource BoolToVisibility}}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="{Binding LoadedPdf.FileName}" FontSize="13" FontWeight="Medium" />
-                        <TextBlock Text="{Binding Status}" Style="{StaticResource BodyMuted}" />
-                    </StackPanel>
-                    <Button Grid.Column="1" Content="Entfernen"
-                            Style="{StaticResource SecondaryButton}"
-                            Command="{Binding ClearPdfCommand}" />
-                </Grid>
-            </Grid>
-        </Border>
-
-        <!-- Detail slider -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,16">
-            <StackPanel>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- Row 1 · Main PDF drop zone                                      -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="1" x:Name="DropZone"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderStrongBrush}"
+                    BorderThickness="1.5"
+                    CornerRadius="{StaticResource CornerMd}"
+                    Padding="14,12" Margin="0,0,0,12"
+                    AllowDrop="True"
+                    DragOver="DropZone_DragOver"
+                    Drop="DropZone_Drop">
                 <Grid>
-                    <TextBlock Text="Detailgrad" FontSize="13" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding DetailLevelLabel}"
-                               Style="{StaticResource BodyMuted}"
-                               HorizontalAlignment="Right" />
+                    <!-- Empty state -->
+                    <StackPanel Orientation="Horizontal">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasPdf}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="{Binding Status}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Button Content="PDF auswählen" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding PickPdfCommand}"
+                                Margin="16,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Loaded state -->
+                    <Grid Visibility="{Binding HasPdf, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{Binding LoadedPdf.FileName}"
+                                       FontSize="13" FontWeight="Medium" />
+                            <TextBlock Text="{Binding Status}" Style="{StaticResource BodyMuted}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Entfernen"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding ClearPdfCommand}" />
+                    </Grid>
                 </Grid>
-                <Slider Value="{Binding DetailLevel, Mode=TwoWay}"
-                        Minimum="1" Maximum="5"
-                        TickFrequency="1"
-                        TickPlacement="BottomRight"
-                        IsSnapToTickEnabled="True"
-                        Margin="0,10,0,0" />
+            </Border>
 
-                <StackPanel Orientation="Horizontal" Margin="0,14,0,0" HorizontalAlignment="Right">
-                    <Button Content="Abbrechen" Style="{StaticResource SecondaryButton}"
-                            Command="{Binding CancelCommand}"
-                            Margin="0,0,8,0"
-                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
-                    <Button Content="Teststoff extrahieren" Style="{StaticResource PrimaryButton}"
-                            Command="{Binding ExtractCommand}"
-                            Visibility="{Binding IsBusy, Converter={StaticResource InverseBool}, ConverterParameter=toVis}" />
-                </StackPanel>
-            </StackPanel>
-        </Border>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- Row 2 · Advanced Options: Focus Topics + Reference PDF          -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
 
-        <!-- Result preview -->
-        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="0">
-            <Grid>
-                <!-- Empty state -->
-                <TextBlock Text="Die Zusammenfassung erscheint hier, sobald du auf 'Teststoff extrahieren' klickst."
-                           Style="{StaticResource BodyMuted}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Visibility="{Binding HasResult, Converter={StaticResource InverseBool}, ConverterParameter=toVis}" />
+                    <!-- Section title row -->
+                    <TextBlock Text="Erweiterte Optionen"
+                               FontSize="13" FontWeight="SemiBold" Margin="0,0,0,14" />
 
-                <!-- Result -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              Padding="20,16"
-                              Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
-                    <TextBox Text="{Binding ResultPreview, Mode=OneWay}"
-                             IsReadOnly="True"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             FontSize="13"
+                    <!-- ─── Feature 1: Fokus-Themen ──────────────────────── -->
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock Text="Fokus-Themen"
+                                   FontSize="12" FontWeight="SemiBold" />
+                        <!-- Badge shown when topics are active -->
+                        <Border HorizontalAlignment="Right"
+                                CornerRadius="3" Padding="6,1"
+                                Background="{StaticResource AccentBrush}"
+                                Visibility="{Binding HasFocusTopics,
+                                             Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="aktiv" FontSize="10"
+                                       Foreground="White" />
+                        </Border>
+                    </Grid>
+                    <TextBlock Style="{StaticResource BodyMuted}" Margin="0,0,0,6"
+                               TextWrapping="Wrap">
+                        Komma- oder semikolongetrennte Themen — der Detailgrad-Schieberegler
+                        verteilt das Budget: Fokus-Themen erhalten ein höheres Gewicht,
+                        restlicher Inhalt wird gekürzt.
+                    </TextBlock>
+                    <TextBox Text="{Binding FocusTopics, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="12"
+                             Padding="8,6"
+                             BorderBrush="{StaticResource BorderStrongBrush}"
+                             BorderThickness="1"
                              TextWrapping="Wrap"
-                             AcceptsReturn="True"
-                             VerticalScrollBarVisibility="Disabled" />
-                </ScrollViewer>
-            </Grid>
-        </Border>
+                             AcceptsReturn="False" />
 
-        <!-- Export row -->
-        <Grid Grid.Row="4" Margin="0,16,0,0"
-              Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="{Binding LastGeneratedPdfPath, StringFormat='Zuletzt exportiert: {0}'}"
-                       Style="{StaticResource BodyMuted}"
-                       VerticalAlignment="Center" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Zuletzt erstelltes PDF öffnen"
-                        Style="{StaticResource SecondaryButton}"
-                        Command="{Binding OpenLastPdfCommand}"
-                        Margin="0,0,8,0" />
-                <Button Content="Als PDF speichern"
-                        Style="{StaticResource PrimaryButton}"
-                        Command="{Binding ExportPdfCommand}" />
-            </StackPanel>
+                    <!-- Divider -->
+                    <Border Height="1" Background="{StaticResource BorderStrongBrush}"
+                            Margin="0,16,0,14" Opacity="0.4" />
+
+                    <!-- ─── Feature 2: Referenz-Dokument (Stil-Vorlage) ───── -->
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock Text="Stil-Referenz (optional)"
+                                   FontSize="12" FontWeight="SemiBold" />
+                        <!-- Badge when reference is loaded -->
+                        <Border HorizontalAlignment="Right"
+                                CornerRadius="3" Padding="6,1"
+                                Background="{StaticResource AccentBrush}"
+                                Visibility="{Binding HasReferencePdf,
+                                             Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="aktiv" FontSize="10"
+                                       Foreground="White" />
+                        </Border>
+                    </Grid>
+                    <TextBlock Style="{StaticResource BodyMuted}" Margin="0,0,0,8"
+                               TextWrapping="Wrap">
+                        Lade ein Dokument, dessen Struktur, Gliederungstiefe und Formatierung
+                        als Stil-Vorlage für die Extraktion übernommen werden soll.
+                    </TextBlock>
+
+                    <!-- Reference PDF drop zone -->
+                    <Border x:Name="RefDropZone"
+                            Background="{StaticResource SurfaceBrush}"
+                            BorderBrush="{StaticResource BorderStrongBrush}"
+                            BorderThickness="1.5"
+                            CornerRadius="{StaticResource CornerMd}"
+                            Padding="12,10"
+                            AllowDrop="True"
+                            DragOver="RefDropZone_DragOver"
+                            Drop="RefDropZone_Drop">
+                        <Grid>
+                            <!-- Empty state -->
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasReferencePdf}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="Referenz-PDF ablegen oder "
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center"
+                                           FontSize="12" />
+                                <Button Content="auswählen"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding PickReferencePdfCommand}"
+                                        Padding="8,4"
+                                        Margin="4,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- Loaded state -->
+                            <Grid Visibility="{Binding HasReferencePdf,
+                                              Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{Binding ReferencePdfName}"
+                                               FontSize="12" FontWeight="Medium" />
+                                    <TextBlock Text="Stil-Analyse aktiv — Struktur und Formatierung werden übertragen"
+                                               Style="{StaticResource BodyMuted}"
+                                               FontSize="11" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="Entfernen"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding ClearReferencePdfCommand}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- Row 3 · Detail slider + action buttons                          -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="Detailgrad" FontSize="13" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding DetailLevelLabel}"
+                                   Style="{StaticResource BodyMuted}"
+                                   HorizontalAlignment="Right" />
+                    </Grid>
+                    <Slider Value="{Binding DetailLevel, Mode=TwoWay}"
+                            Minimum="1" Maximum="5"
+                            TickFrequency="1"
+                            TickPlacement="BottomRight"
+                            IsSnapToTickEnabled="True"
+                            Margin="0,10,0,0" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0"
+                                HorizontalAlignment="Right">
+                        <Button Content="Abbrechen" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding CancelCommand}"
+                                Margin="0,0,8,0"
+                                Visibility="{Binding IsBusy,
+                                             Converter={StaticResource BoolToVisibility}}" />
+                        <Button Content="Teststoff extrahieren"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ExtractCommand}"
+                                Visibility="{Binding IsBusy,
+                                             Converter={StaticResource InverseBool},
+                                             ConverterParameter=toVis}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- Row 4 · Feature 3: Model recommendation banner                  -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="4" Margin="0,0,0,12"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderStrongBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource CornerMd}"
+                    Padding="14,10"
+                    Visibility="{Binding HasModelRecommendation,
+                                 Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding ModelRecommendation}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+            </Border>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- Row 5 · Result preview                                           -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="5" Style="{StaticResource Card}" Padding="0"
+                    Margin="0,0,0,0">
+                <Grid>
+                    <!-- Empty placeholder -->
+                    <TextBlock Text="Die Zusammenfassung erscheint hier, sobald du auf 'Teststoff extrahieren' klickst."
+                               Style="{StaticResource BodyMuted}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextWrapping="Wrap" Margin="20"
+                               Visibility="{Binding HasResult,
+                                            Converter={StaticResource InverseBool},
+                                            ConverterParameter=toVis}" />
+
+                    <!-- Result text -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Padding="20,16"
+                                  Visibility="{Binding HasResult,
+                                               Converter={StaticResource BoolToVisibility}}">
+                        <TextBox Text="{Binding ResultPreview, Mode=OneWay}"
+                                 IsReadOnly="True"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 FontSize="13"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Disabled" />
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- Row 6 · Export row                                               -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Grid Grid.Row="6" Margin="0,16,0,0"
+                  Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding LastGeneratedPdfPath, StringFormat='Zuletzt exportiert: {0}'}"
+                           Style="{StaticResource BodyMuted}"
+                           VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Zuletzt erstelltes PDF öffnen"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding OpenLastPdfCommand}"
+                            Margin="0,0,8,0" />
+                    <Button Content="Als PDF speichern"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding ExportPdfCommand}" />
+                </StackPanel>
+            </Grid>
+
         </Grid>
-    </Grid>
+    </ScrollViewer>
 </UserControl>

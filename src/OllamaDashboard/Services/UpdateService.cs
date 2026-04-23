@@ -1,233 +1,171 @@
-using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Reflection;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OllamaDashboard.Models;
-using Semver;
+using Velopack;
+using Velopack.Sources;
+using VpkUpdateInfo = Velopack.UpdateInfo; // avoids clash with Models namespace
 
 namespace OllamaDashboard.Services;
 
+/// <summary>
+/// Velopack-backed implementation of IUpdateService.
+/// Uses GithubSource so the app locates update packages directly in GitHub Releases.
+/// The public interface is identical to the old implementation — SettingsViewModel
+/// requires zero changes.
+/// </summary>
 public sealed class UpdateService : IUpdateService
 {
-    private const string UserAgent = "OllamaDashboard-Updater";
-
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    private readonly HttpClient _http;
     private readonly ISettingsService _settings;
     private readonly ILogger<UpdateService> _logger;
 
-    public string CurrentVersion { get; }
+    // Cached after CheckForUpdatesAsync so DownloadAndStage + Apply can reuse it.
+    // Velopack's apply step needs the exact same UpdateInfo object from the check.
+    private VpkUpdateInfo? _pendingUpdate;
 
-    public UpdateService(HttpClient http, ISettingsService settings, ILogger<UpdateService> logger)
+    public string CurrentVersion { get; } = GetAssemblyVersion();
+
+    public UpdateService(ISettingsService settings, ILogger<UpdateService> logger)
     {
-        _http = http;
         _settings = settings;
-        _logger = logger;
-
-        // GitHub requires a User-Agent header or it returns 403.
-        if (!_http.DefaultRequestHeaders.UserAgent.Any())
-        {
-            _http.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue(UserAgent, GetAssemblyVersion()));
-        }
-        _http.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-
-        CurrentVersion = GetAssemblyVersion();
+        _logger   = logger;
     }
 
-    private static string GetAssemblyVersion()
-    {
-        var v = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
-        return $"{v.Major}.{v.Minor}.{v.Build}";
-    }
+    // -------------------------------------------------------------------------
+    // IUpdateService
+    // -------------------------------------------------------------------------
 
     public async Task<UpdateCheckResult> CheckForUpdateAsync(CancellationToken ct = default)
     {
-        var owner = _settings.Current.GitHubOwner;
-        var repo = _settings.Current.GitHubRepo;
-
-        if (string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(repo))
+        var mgr = CreateManager();
+        if (mgr is null)
         {
+            return Error("GitHub-Repository nicht konfiguriert. " +
+                         "Bitte Owner und Repository in den Einstellungen eintragen.");
+        }
+
+        // Not installed = running from IDE / debug output folder.
+        if (!mgr.IsInstalled)
+        {
+            _logger.LogInformation("Velopack: app not installed (dev mode) — update check skipped");
             return new UpdateCheckResult
             {
-                CurrentVersion = CurrentVersion,
-                ErrorMessage = "GitHub-Repository ist nicht konfiguriert."
+                UpdateAvailable = false,
+                CurrentVersion  = CurrentVersion,
+                LatestVersion   = CurrentVersion
             };
         }
 
-        var url = _settings.Current.IncludePrereleases
-            ? $"https://api.github.com/repos/{owner}/{repo}/releases"
-            : $"https://api.github.com/repos/{owner}/{repo}/releases/latest";
-
         try
         {
-            GitHubRelease? release;
-            if (_settings.Current.IncludePrereleases)
-            {
-                var releases = await _http.GetFromJsonAsync<List<GitHubRelease>>(url, JsonOpts, ct);
-                release = releases?.FirstOrDefault(r => !r.Draft);
-            }
-            else
-            {
-                release = await _http.GetFromJsonAsync<GitHubRelease>(url, JsonOpts, ct);
-            }
-
-            if (release is null)
-            {
-                return new UpdateCheckResult
-                {
-                    CurrentVersion = CurrentVersion,
-                    ErrorMessage = "Kein Release gefunden."
-                };
-            }
+            var info = await mgr.CheckForUpdatesAsync();
 
             _settings.Current.LastUpdateCheck = DateTime.UtcNow;
             await _settings.SaveAsync(ct);
 
-            var tag = (release.TagName ?? string.Empty).TrimStart('v', 'V');
-            if (!SemVersion.TryParse(tag, SemVersionStyles.Any, out var remote) ||
-                !SemVersion.TryParse(CurrentVersion, SemVersionStyles.Any, out var local))
+            if (info is null)
             {
                 return new UpdateCheckResult
                 {
-                    CurrentVersion = CurrentVersion,
-                    LatestVersion = release.TagName,
-                    ErrorMessage = "Versions-Tag konnte nicht geparst werden (erwartet: semver wie '1.2.3')."
+                    UpdateAvailable = false,
+                    CurrentVersion  = CurrentVersion,
+                    LatestVersion   = CurrentVersion
                 };
             }
 
-            var hasUpdate = remote.ComparePrecedenceTo(local) > 0;
-
-            // Prefer the first .zip asset.
-            var asset = release.Assets.FirstOrDefault(
-                a => a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
-
+            _pendingUpdate = info; // cache for download step
             return new UpdateCheckResult
             {
-                UpdateAvailable = hasUpdate,
-                CurrentVersion = CurrentVersion,
-                LatestVersion = tag,
-                ReleaseNotes = release.Body,
-                DownloadUrl = asset?.BrowserDownloadUrl,
-                DownloadSizeBytes = asset?.Size,
-                PublishedAt = release.PublishedAt,
-                ErrorMessage = hasUpdate && asset is null
-                    ? "Release enthält keinen ZIP-Anhang."
-                    : null
-            };
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogWarning(ex, "GitHub update check failed");
-            return new UpdateCheckResult
-            {
-                CurrentVersion = CurrentVersion,
-                ErrorMessage = $"Netzwerkfehler: {ex.Message}"
+                UpdateAvailable = true,
+                CurrentVersion  = CurrentVersion,
+                LatestVersion   = info.TargetFullRelease.Version.ToString(),
+                ReleaseNotes    = info.TargetFullRelease.NotesMarkdown
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during update check");
-            return new UpdateCheckResult
-            {
-                CurrentVersion = CurrentVersion,
-                ErrorMessage = ex.Message
-            };
+            _logger.LogWarning(ex, "Update check failed");
+            return Error(ex.Message);
         }
     }
 
     public async Task<string> DownloadAndStageUpdateAsync(
-        UpdateCheckResult update,
+        UpdateCheckResult _result,
         IProgress<UpdateProgress>? progress = null,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(update.DownloadUrl))
-            throw new InvalidOperationException("Kein Download-Link vorhanden.");
+        var mgr = CreateManager()
+            ?? throw new InvalidOperationException("GitHub-Repository nicht konfiguriert.");
 
-        var stagingRoot = Path.Combine(Path.GetTempPath(), "OllamaDashboardUpdate");
-        if (Directory.Exists(stagingRoot)) Directory.Delete(stagingRoot, true);
-        Directory.CreateDirectory(stagingRoot);
+        if (!mgr.IsInstalled)
+            throw new InvalidOperationException(
+                "Velopack-Installer erforderlich — App läuft im Entwicklungsmodus.");
 
-        var zipPath = Path.Combine(stagingRoot, "update.zip");
-        var extractedDir = Path.Combine(stagingRoot, "extracted");
-
-        progress?.Report(new UpdateProgress { StageDescription = "Lade Update…" });
-
-        // Streamed download with progress
-        using (var resp = await _http.GetAsync(
-                   update.DownloadUrl,
-                   HttpCompletionOption.ResponseHeadersRead,
-                   ct))
+        // Re-fetch if cache is empty (defensive path when user skips explicit check).
+        if (_pendingUpdate is null)
         {
-            resp.EnsureSuccessStatusCode();
-            var total = resp.Content.Headers.ContentLength ?? update.DownloadSizeBytes;
-
-            await using var netStream = await resp.Content.ReadAsStreamAsync(ct);
-            await using var fileStream = File.Create(zipPath);
-            var buffer = new byte[81920];
-            long totalRead = 0;
-            int read;
-            while ((read = await netStream.ReadAsync(buffer, ct)) > 0)
-            {
-                await fileStream.WriteAsync(buffer.AsMemory(0, read), ct);
-                totalRead += read;
-                progress?.Report(new UpdateProgress
-                {
-                    BytesDownloaded = totalRead,
-                    TotalBytes = total,
-                    StageDescription = "Lade Update…"
-                });
-            }
+            _pendingUpdate = await mgr.CheckForUpdatesAsync()
+                ?? throw new InvalidOperationException("Kein Update verfügbar.");
         }
 
-        progress?.Report(new UpdateProgress { StageDescription = "Entpacke Update…" });
-        Directory.CreateDirectory(extractedDir);
-        ZipFile.ExtractToDirectory(zipPath, extractedDir, overwriteFiles: true);
+        // Velopack progress: Action<int> with 0-100 percentage.
+        Action<int>? veloProgress = progress is null ? null : pct =>
+            progress.Report(new UpdateProgress
+            {
+                BytesDownloaded  = pct,
+                TotalBytes       = 100,
+                StageDescription = $"Lade Update… {pct} %"
+            });
 
-        File.Delete(zipPath);
+        // Signature: DownloadUpdatesAsync(UpdateInfo, Action<int>?, CancellationToken)
+        await mgr.DownloadUpdatesAsync(_pendingUpdate, veloProgress, ct);
 
-        _logger.LogInformation("Update staged at {Path}", extractedDir);
-        return extractedDir;
+        // Velopack manages its own staging directory.
+        // We return a sentinel that ApplyUpdateAndRestart ignores.
+        return "velopack_staged";
     }
 
-    public void ApplyUpdateAndRestart(string stagedUpdateFolder)
+    public void ApplyUpdateAndRestart(string _stagedPath)
     {
-        var installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var exePath = Process.GetCurrentProcess().MainModule?.FileName
-                      ?? Path.Combine(installDir, "OllamaDashboard.exe");
-        var updaterPath = Path.Combine(installDir, "OllamaDashboard.Updater.exe");
+        if (_pendingUpdate is null)
+            throw new InvalidOperationException(
+                "Kein gestaffeltes Update vorhanden. Zuerst DownloadAndStageUpdateAsync aufrufen.");
 
-        if (!File.Exists(updaterPath))
-            throw new FileNotFoundException("Updater.exe nicht gefunden", updaterPath);
+        var mgr = CreateManager()
+            ?? throw new InvalidOperationException("GitHub-Repository nicht konfiguriert.");
 
-        var pid = Environment.ProcessId;
-        var args =
-            $"--pid {pid} " +
-            $"--source \"{stagedUpdateFolder}\" " +
-            $"--target \"{installDir}\" " +
-            $"--relaunch \"{exePath}\"";
+        // Launches the Velopack updater, replaces app files, relaunches new version.
+        // This call does not return.
+        mgr.ApplyUpdatesAndRestart(_pendingUpdate);
+    }
 
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = updaterPath,
-            Arguments = args,
-            UseShellExecute = true,
-            CreateNoWindow = true,
-            WorkingDirectory = Path.GetTempPath()
-        });
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
 
-        // Give the updater a moment to spawn, then shut down.
-        System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
-            System.Windows.Application.Current.Shutdown());
+    /// <summary>
+    /// Creates an UpdateManager pointing at the configured GitHub repo.
+    /// Returns null when owner/repo are not yet filled in the settings.
+    /// </summary>
+    private UpdateManager? CreateManager()
+    {
+        var owner = _settings.Current.GitHubOwner?.Trim();
+        var repo  = _settings.Current.GitHubRepo?.Trim();
+        if (string.IsNullOrEmpty(owner) || string.IsNullOrEmpty(repo)) return null;
+
+        var source = new GithubSource(
+            repoUrl:     $"https://github.com/{owner}/{repo}",
+            accessToken: null,   // null = public repo, no auth required
+            prerelease:  _settings.Current.IncludePrereleases);
+
+        return new UpdateManager(source);
+    }
+
+    private UpdateCheckResult Error(string msg) =>
+        new() { CurrentVersion = CurrentVersion, ErrorMessage = msg };
+
+    private static string GetAssemblyVersion()
+    {
+        var v = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 1, 0);
+        return $"{v.Major}.{v.Minor}.{v.Build}";
     }
 }

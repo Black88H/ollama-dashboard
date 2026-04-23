@@ -17,6 +17,8 @@
     <Product>Ollama Dashboard</Product>
     <Copyright>Copyright © 2026</Copyright>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Velopack requires a custom entry point so VelopackApp.Build().Run() runs first -->
+    <StartupObject>OllamaDashboard.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -52,6 +54,7 @@
 
     <!-- Semantic Versioning for update checks -->
     <PackageReference Include="Semver" Version="3.0.0" />
+    <PackageReference Include="Velopack" Version="0.0.1298" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,6 +17,23 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        // Global safety net: catches any unhandled exception during startup and
+        // shows it in a MessageBox before the process exits silently.
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            var msg = args.ExceptionObject is Exception ex ? ex.ToString() : args.ExceptionObject?.ToString();
+            MessageBox.Show(msg, "Kritischer Startfehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        };
+        DispatcherUnhandledException += (_, args) =>
+        {
+            MessageBox.Show(args.Exception.ToString(), "UI-Fehler beim Start",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true;
+        };
+
+        try
+        {
+
         // Logging first, so anything that throws during DI is captured.
         var logDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -38,9 +55,11 @@ public partial class App : Application
                 services.AddSingleton<ISettingsService, SettingsService>();
                 services.AddSingleton<IPdfService, PdfService>();
                 services.AddSingleton<IModelRegistry, ModelRegistry>();
+                services.AddSingleton<IScriptAnalysisService, ScriptAnalysisService>();
 
                 services.AddHttpClient<IOllamaService, OllamaService>();
-                services.AddHttpClient<IUpdateService, UpdateService>();
+                // UpdateService uses Velopack internally (no HttpClient needed here)
+                services.AddSingleton<IUpdateService, UpdateService>();
 
                 // ViewModels
                 services.AddSingleton<MainViewModel>();
@@ -97,6 +116,15 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+
+        } // end try
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.ToString(), "Startfehler — Details",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            Log.CloseAndFlush();
+            Shutdown(1);
+        }
     }
 
     protected override async void OnExit(ExitEventArgs e)

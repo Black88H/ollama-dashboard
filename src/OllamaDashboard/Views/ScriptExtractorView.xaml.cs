@@ -9,6 +9,8 @@ public partial class ScriptExtractorView : UserControl
 {
     public ScriptExtractorView() => InitializeComponent();
 
+    // ── Main PDF drop zone ────────────────────────────────────────────────────
+
     private void DropZone_DragOver(object sender, DragEventArgs e)
     {
         e.Effects = IsPdfDrag(e) ? DragDropEffects.Copy : DragDropEffects.None;
@@ -25,6 +27,27 @@ public partial class ScriptExtractorView : UserControl
             Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase));
         if (pdf is not null) await vm.LoadPdfAsync(pdf);
     }
+
+    // ── Reference PDF drop zone (Feature 2) ───────────────────────────────────
+
+    private void RefDropZone_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = IsPdfDrag(e) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void RefDropZone_Drop(object sender, DragEventArgs e)
+    {
+        if (!IsPdfDrag(e)) return;
+        if (DataContext is not ScriptExtractorViewModel vm) return;
+
+        var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+        var pdf = files.FirstOrDefault(f =>
+            Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase));
+        if (pdf is not null) await vm.LoadReferencePdfAsync(pdf);
+    }
+
+    // ── Shared helper ─────────────────────────────────────────────────────────
 
     private static bool IsPdfDrag(DragEventArgs e)
     {
