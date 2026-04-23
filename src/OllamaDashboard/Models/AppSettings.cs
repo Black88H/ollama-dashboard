@@ -13,7 +13,7 @@ public sealed class AppSettings
     public AppTheme Theme { get; set; } = AppTheme.System;
 
     // Update
-    public string GitHubOwner { get; set; } = "yourusername";
+    public string GitHubOwner { get; set; } = "Black88H";
     public string GitHubRepo { get; set; } = "ollama-dashboard";
     public bool CheckUpdatesOnStartup { get; set; } = true;
     public bool IncludePrereleases { get; set; } = false;
@@ -21,6 +21,11 @@ public sealed class AppSettings
 
     // Script extractor defaults
     public SummaryDetailLevel DefaultSummaryDetail { get; set; } = SummaryDetailLevel.Medium;
+
+    // Groq API (free server-side AI, optional alternative to local Ollama)
+    public string GroqApiKey { get; set; } = string.Empty;
+    public string GroqModel { get; set; } = "llama-3.3-70b-versatile";
+    public bool UseGroqForExtraction { get; set; } = false;
 }
 
 public enum AppTheme

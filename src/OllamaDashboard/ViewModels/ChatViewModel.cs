@@ -135,10 +135,15 @@ public partial class ChatViewModel : ObservableObject
         try
         {
             var conversation = BuildConversation();
+            var sb = new System.Text.StringBuilder();
+            var chunkCount = 0;
             await foreach (var chunk in _ollama.StreamChatAsync(conversation, ct: _streamCts.Token))
             {
-                assistantMsg.Content += chunk;
+                sb.Append(chunk);
+                if (++chunkCount % 10 == 0)
+                    assistantMsg.Content = sb.ToString();
             }
+            assistantMsg.Content = sb.ToString();
         }
         catch (OperationCanceledException)
         {

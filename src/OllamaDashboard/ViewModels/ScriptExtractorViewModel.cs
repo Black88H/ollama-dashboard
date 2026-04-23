@@ -13,6 +13,8 @@ namespace OllamaDashboard.ViewModels;
 public partial class ScriptExtractorViewModel : ObservableObject
 {
     private readonly IOllamaService _ollama;
+    private readonly IGroqService _groq;
+    private readonly ISettingsService _settings;
     private readonly IPdfService _pdf;
     private readonly IModelRegistry _models;
     private readonly IScriptAnalysisService _analysis;
@@ -105,12 +107,16 @@ public partial class ScriptExtractorViewModel : ObservableObject
 
     public ScriptExtractorViewModel(
         IOllamaService ollama,
+        IGroqService groq,
+        ISettingsService settings,
         IPdfService pdf,
         IModelRegistry models,
         IScriptAnalysisService analysis,
         ILogger<ScriptExtractorViewModel> logger)
     {
         _ollama   = ollama;
+        _groq     = groq;
+        _settings = settings;
         _pdf      = pdf;
         _models   = models;
         _analysis = analysis;
@@ -339,7 +345,15 @@ public partial class ScriptExtractorViewModel : ObservableObject
 
         IsProgressIndeterminate = false;
 
-        await foreach (var chunk in _ollama.StreamChatAsync(messages, _recommendedModel, _cts!.Token))
+        var useGroq = _settings.Current.UseGroqForExtraction && _groq.IsConfigured;
+        if (useGroq)
+            ExtractionStatusLabel = "Empfange Antwort von Groq…";
+
+        var stream = useGroq
+            ? _groq.StreamChatAsync(messages, ct: _cts!.Token)
+            : _ollama.StreamChatAsync(messages, _recommendedModel, _cts!.Token);
+
+        await foreach (var chunk in stream)
         {
             sb.Append(chunk);
             _receivedChars += chunk.Length;

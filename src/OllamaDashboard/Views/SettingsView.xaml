@@ -115,6 +115,34 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ============ Groq API (Server-KI) ============ -->
+                <TextBlock Text="Server-KI — Groq API (optional)" Style="{StaticResource Heading}" Margin="0,0,0,12" />
+                <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,14"
+                                   Style="{StaticResource BodyMuted}"
+                                   Text="Groq bietet kostenlose Cloud-Modelle (Llama 3, Mixtral) über eine schnelle Serverinfrastruktur — ideal wenn kein leistungsstarkes lokales Modell vorhanden ist. API Key kostenlos unter groq.com/keys." />
+
+                        <TextBlock Text="API Key" FontSize="12"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,0,0,6" />
+                        <TextBox Text="{Binding GroqApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                 FontFamily="Consolas" />
+
+                        <TextBlock Text="Modell" FontSize="12"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,6" />
+                        <ComboBox ItemsSource="{Binding GroqModels}"
+                                  SelectedValue="{Binding GroqModel, Mode=TwoWay}"
+                                  Text="{Binding GroqModel}"
+                                  IsEditable="True" />
+
+                        <CheckBox Content="Groq für Skript-Extraktor verwenden (kein lokales Modell nötig)"
+                                  IsChecked="{Binding UseGroqForExtraction}"
+                                  Margin="0,14,0,0" />
+                    </StackPanel>
+                </Border>
+
                 <!-- ============ Updates ============ -->
                 <TextBlock Text="Updates" Style="{StaticResource Heading}" Margin="0,0,0,12" />
                 <Border Style="{StaticResource Card}" Margin="0,0,0,24">
