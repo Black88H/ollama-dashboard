@@ -25,7 +25,7 @@ param(
     [Parameter(Mandatory)]
     [string] $Version,
 
-    [string] $GitHubOwner = "yourusername",
+    [string] $GitHubOwner = "Black88H",
     [string] $GitHubRepo  = "ollama-dashboard",
 
     [switch] $Upload,
