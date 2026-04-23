@@ -1,0 +1,62 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    name: Build & Test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build (Release)
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Run tests
+      run: dotnet test --configuration Release --no-build --verbosity normal
+
+    - name: Check for warnings
+      run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
+      continue-on-error: true
+
+  publish:
+    runs-on: windows-latest
+    name: Publish Release (on main only)
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Publish (self-contained win-x64)
+      run: dotnet publish src/OllamaDashboard/OllamaDashboard.csproj -c Release -r win-x64 --self-contained
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ollama-dashboard-build
+        path: src/OllamaDashboard/bin/Release/net8.0-windows/win-x64/
+        retention-days: 30
