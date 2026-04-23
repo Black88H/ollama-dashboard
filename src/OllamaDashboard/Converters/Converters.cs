@@ -118,6 +118,26 @@ public sealed class BytesToSizeConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>
+/// RadioButton helper: returns true when the bound enum value equals the ConverterParameter string.
+/// ConvertBack parses the parameter string back to the enum type so the bound property is updated.
+/// </summary>
+public sealed class EnumEqualsConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is null || parameter is null) return false;
+        return value.ToString()!.Equals(parameter.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool b && b && parameter is not null)
+            return Enum.Parse(targetType, parameter.ToString()!, ignoreCase: true);
+        return Binding.DoNothing;
+    }
+}
+
 /// <summary>MultiBinding converter: returns true iff both string inputs are equal (case-insensitive).</summary>
 public sealed class StringEqualsConverter : IMultiValueConverter
 {

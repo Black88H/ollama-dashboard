@@ -29,8 +29,8 @@ public sealed class OllamaService : IOllamaService
         _settings = settings;
         _logger = logger;
 
-        // Timeout for streaming must be generous; Ollama may take minutes on big contexts.
-        _http.Timeout = TimeSpan.FromMinutes(10);
+        // Large contexts can take 30+ minutes; keep_alive=-1 prevents mid-run model unloading.
+        _http.Timeout = TimeSpan.FromMinutes(30);
     }
 
     private Uri BuildUri(string path)

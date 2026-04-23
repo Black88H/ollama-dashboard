@@ -14,6 +14,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IOllamaService _ollama;
     private readonly IUpdateService _updater;
     private readonly IModelRegistry _modelRegistry;
+    private readonly IThemeService _themeService;
     private readonly ILogger<SettingsViewModel> _logger;
 
     /// <summary>Live list of installed Ollama models (owned by the registry).</summary>
@@ -42,6 +43,9 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _includePrereleases;
+
+    [ObservableProperty]
+    private AppTheme _selectedTheme = AppTheme.System;
 
     [ObservableProperty]
     private string _connectionStatus = "Unbekannt";
@@ -76,12 +80,14 @@ public partial class SettingsViewModel : ObservableObject
         IOllamaService ollama,
         IUpdateService updater,
         IModelRegistry modelRegistry,
+        IThemeService themeService,
         ILogger<SettingsViewModel> logger)
     {
         _settings = settings;
         _ollama = ollama;
         _updater = updater;
         _modelRegistry = modelRegistry;
+        _themeService = themeService;
         _logger = logger;
 
         LoadFromSettings();
@@ -94,15 +100,18 @@ public partial class SettingsViewModel : ObservableObject
 
     private void LoadFromSettings()
     {
-        OllamaBaseUrl = _settings.Current.OllamaBaseUrl;
-        SelectedModel = _settings.Current.SelectedModel;
-        Temperature = _settings.Current.Temperature;
-        ContextWindow = _settings.Current.ContextWindow;
-        GitHubOwner = _settings.Current.GitHubOwner;
-        GitHubRepo = _settings.Current.GitHubRepo;
+        OllamaBaseUrl         = _settings.Current.OllamaBaseUrl;
+        SelectedModel         = _settings.Current.SelectedModel;
+        Temperature           = _settings.Current.Temperature;
+        ContextWindow         = _settings.Current.ContextWindow;
+        GitHubOwner           = _settings.Current.GitHubOwner;
+        GitHubRepo            = _settings.Current.GitHubRepo;
         CheckUpdatesOnStartup = _settings.Current.CheckUpdatesOnStartup;
-        IncludePrereleases = _settings.Current.IncludePrereleases;
+        IncludePrereleases    = _settings.Current.IncludePrereleases;
+        SelectedTheme         = _settings.Current.Theme;
     }
+
+    partial void OnSelectedThemeChanged(AppTheme value) => _themeService.Apply(value);
 
     [RelayCommand]
     private async Task SaveAsync()
@@ -115,6 +124,7 @@ public partial class SettingsViewModel : ObservableObject
         _settings.Current.GitHubRepo            = GitHubRepo;
         _settings.Current.CheckUpdatesOnStartup = CheckUpdatesOnStartup;
         _settings.Current.IncludePrereleases    = IncludePrereleases;
+        _settings.Current.Theme                 = SelectedTheme;
 
         await _settings.SaveAsync();
         MessageBox.Show("Einstellungen gespeichert.", "Erfolgreich",
