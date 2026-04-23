@@ -75,6 +75,25 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _downloadStage = string.Empty;
 
+    // Groq
+    [ObservableProperty]
+    private string _groqApiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _groqModel = string.Empty;
+
+    [ObservableProperty]
+    private bool _useGroqForExtraction;
+
+    public IReadOnlyList<string> GroqModels { get; } = new[]
+    {
+        "llama-3.3-70b-versatile",
+        "llama3-70b-8192",
+        "llama3-8b-8192",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it"
+    };
+
     public SettingsViewModel(
         ISettingsService settings,
         IOllamaService ollama,
@@ -109,6 +128,9 @@ public partial class SettingsViewModel : ObservableObject
         CheckUpdatesOnStartup = _settings.Current.CheckUpdatesOnStartup;
         IncludePrereleases    = _settings.Current.IncludePrereleases;
         SelectedTheme         = _settings.Current.Theme;
+        GroqApiKey            = _settings.Current.GroqApiKey;
+        GroqModel             = _settings.Current.GroqModel;
+        UseGroqForExtraction  = _settings.Current.UseGroqForExtraction;
     }
 
     partial void OnSelectedThemeChanged(AppTheme value) => _themeService.Apply(value);
@@ -125,6 +147,9 @@ public partial class SettingsViewModel : ObservableObject
         _settings.Current.CheckUpdatesOnStartup = CheckUpdatesOnStartup;
         _settings.Current.IncludePrereleases    = IncludePrereleases;
         _settings.Current.Theme                 = SelectedTheme;
+        _settings.Current.GroqApiKey            = GroqApiKey;
+        _settings.Current.GroqModel             = GroqModel;
+        _settings.Current.UseGroqForExtraction  = UseGroqForExtraction;
 
         await _settings.SaveAsync();
         MessageBox.Show("Einstellungen gespeichert.", "Erfolgreich",

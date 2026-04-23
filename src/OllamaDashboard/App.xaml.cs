@@ -59,6 +59,7 @@ public partial class App : Application
                 services.AddSingleton<IScriptAnalysisService, ScriptAnalysisService>();
 
                 services.AddHttpClient<IOllamaService, OllamaService>();
+                services.AddHttpClient<IGroqService, GroqService>();
                 // UpdateService uses Velopack internally (no HttpClient needed here)
                 services.AddSingleton<IUpdateService, UpdateService>();
 

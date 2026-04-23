@@ -104,7 +104,12 @@ public sealed class OllamaService : IOllamaService
 
         using var httpResp = await _http.SendAsync(
             httpReq, HttpCompletionOption.ResponseHeadersRead, ct);
-        httpResp.EnsureSuccessStatusCode();
+        if (!httpResp.IsSuccessStatusCode)
+        {
+            var body = await httpResp.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException(
+                $"Ollama API Fehler {(int)httpResp.StatusCode}: {body}");
+        }
 
         await using var stream = await httpResp.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream, Encoding.UTF8);

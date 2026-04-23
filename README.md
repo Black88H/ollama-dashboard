@@ -1,155 +1,218 @@
-# Ollama Dashboard
+# Ollama Dashboard v2.1.0
 
-Eine schlanke, minimalistische Windows-Desktop-App (WPF / .NET 8), die lokal mit [Ollama](https://ollama.com) kommuniziert und drei Kernfunktionen bietet:
+Eine kostenlose Windows-App, mit der du KI-Modelle direkt auf deinem PC nutzen kannst — ganz ohne Internetverbindung und ohne Abo.
 
-1. **PDF Chat** — PDF per Drag & Drop laden, Fragen stellen, Streaming-Antwort
-2. **Skript-Extraktor** — prüfungsrelevanten Stoff aus Skripten ziehen, per Slider in 5 Detailstufen, Export als neue PDF
-3. **Self-Update** — automatischer Update-Check via GitHub Releases API mit anschließendem Self-Update
+**Was kann die App?**
+- **PDF Chat** — Lade ein PDF hoch und stelle per Drag & Drop Fragen dazu
+- **Skript-Extraktor** — Ziehe prüfungsrelevanten Stoff aus langen Skripten (5 Detailstufen, Export als PDF)
+- **Groq-Integration** — Kostenlose Server-KI als Alternative zu lokalen Modellen
+- **Auto-Update** — Die App aktualisiert sich selbst über GitHub
 
 ---
 
-## Projektstruktur
+## Schritt-für-Schritt: Erste Schritte
+
+### Schritt 1 — Ollama installieren
+
+Ollama ist das Programm, das die KI-Modelle auf deinem PC ausführt.
+
+1. Öffne https://ollama.com/download
+2. Klicke auf **Download for Windows**
+3. Führe die heruntergeladene `.exe`-Datei aus und folge dem Installer
+4. Öffne danach die **Eingabeaufforderung** (Windows-Taste → `cmd` eingeben → Enter)
+5. Lade dein erstes Modell herunter:
+   ```
+   ollama pull llama3.1:8b
+   ```
+   > Dieser Download ist ca. 5 GB groß und läuft einmalig. Danach funktioniert die App offline.
+
+6. Stelle sicher, dass Ollama läuft — im Systray (rechts unten in der Taskleiste) sollte das Ollama-Symbol erscheinen.
+
+---
+
+### Schritt 2 — Ollama Dashboard herunterladen
+
+**Richtige Datei für Windows (64-Bit):**
+
+> Lade **`OllamaDashboard-win-x64.exe`** von der [Releases-Seite](https://github.com/Black88H/ollama-dashboard/releases/latest) herunter.
+
+Falls du unsicher bist, welches System du hast: Windows-Taste → `Einstellungen` → `System` → `Info` → unter **Gerätetyp** steht "64-Bit-Betriebssystem".
+
+---
+
+### Schritt 3 — App starten
+
+1. Doppelklicke auf `OllamaDashboard-win-x64.exe`
+2. Falls Windows eine Warnung zeigt ("Unbekannter Herausgeber"): Klicke auf **Weitere Informationen** → **Trotzdem ausführen**
+3. Die App startet und zeigt die Chat-Ansicht
+
+> **Hinweis:** Die App benötigt keine Installation. Du kannst die `.exe` überall ablegen.
+
+---
+
+### Schritt 4 — Modell auswählen
+
+In der linken Leiste siehst du oben das aktuell aktive Modell (z. B. "llama3.1:8b").
+- Klicke darauf, um ein anderes Modell zu wählen
+- Wenn noch kein Modell erscheint: Lade zuerst eines mit `ollama pull <modellname>` (siehe Schritt 1)
+
+---
+
+## Die drei Funktionen
+
+### PDF Chat
+
+1. Klicke auf **PDF auswählen** oder ziehe eine PDF-Datei in den markierten Bereich
+2. Warte, bis der Text extrahiert wurde (Seitenanzahl und Token-Schätzung erscheinen)
+3. Stelle deine Frage im Eingabefeld unten und drücke **Enter** oder den Sende-Button
+4. Die KI antwortet in Echtzeit (Text erscheint Wort für Wort)
+
+> Tipp: Mit **Shift+Enter** kannst du einen Zeilenumbruch im Eingabefeld einfügen, ohne die Nachricht zu senden.
+
+---
+
+### Skript-Extraktor
+
+Ideal um aus langen Uni-Skripten das Prüfungsrelevante herauszufiltern.
+
+1. Klicke auf **PDF auswählen** und wähle dein Skriptum
+2. Stelle die **Detailstufe** ein (Schieberegler, 1 = sehr kurz, 5 = ausführlich)
+3. Optional: Gib **Fokus-Themen** ein (z. B. "Thermodynamik, Wärmeübertragung")
+4. Klicke auf **Extrahieren**
+5. Das Ergebnis erscheint auf der rechten Seite — du kannst es als **PDF exportieren**
+
+**Tipp — Groq als schnelle Alternative:**
+Wenn du keinen leistungsstarken PC hast, kannst du die Groq API verwenden (kostenlos, kein eigenes Modell nötig). Siehe Abschnitt [Groq API einrichten](#groq-api-einrichten-optional) weiter unten.
+
+---
+
+### Einstellungen
+
+Erreichbar über das Zahnrad-Symbol in der Seitenleiste.
+
+| Einstellung | Erklärung |
+|---|---|
+| **Base URL** | Adresse von Ollama — normalerweise `http://localhost:11434` |
+| **Modell** | Aktuell ausgewähltes KI-Modell |
+| **Temperatur** | 0 = sachlich/präzise, 1 = kreativ, 2 = sehr kreativ |
+| **Kontextfenster** | Wie viele Tokens (Wörter) die KI im Gedächtnis behält |
+| **Theme** | Hell / Dunkel / System |
+
+---
+
+## Groq API einrichten (optional)
+
+Groq ist ein kostenloser Cloud-Dienst mit sehr schnellen KI-Modellen (Llama 3, Mixtral).
+Vorteil: Kein lokales Modell nötig, kein langsamer PC erforderlich.
+
+**So richtest du Groq ein:**
+
+1. Gehe zu https://console.groq.com/keys
+2. Melde dich kostenlos an (kein Kreditkarte nötig)
+3. Klicke auf **Create API Key** und kopiere den Schlüssel
+4. Öffne in der App: **Einstellungen → Server-KI — Groq API**
+5. Füge den API Key in das Feld **API Key** ein
+6. Wähle ein Modell (Empfehlung: `llama-3.3-70b-versatile`)
+7. Setze den Haken bei **"Groq für Skript-Extraktor verwenden"**
+8. Klicke auf **Einstellungen speichern**
+
+Ab jetzt wird der Skript-Extraktor Groq statt deines lokalen Modells verwenden.
+
+---
+
+## Häufige Probleme
+
+### "Verbindung zu Ollama fehlgeschlagen"
+
+- Stelle sicher, dass Ollama läuft (Systray-Symbol in der Taskleiste rechts unten)
+- Falls nicht: Öffne die **Eingabeaufforderung** und führe `ollama serve` aus
+- In den Einstellungen: klicke auf **Verbindung testen**
+
+### "Kein Modell installiert"
+
+Öffne die Eingabeaufforderung und führe aus:
+```
+ollama pull llama3.1:8b
+```
+
+### Das PDF wird nicht erkannt
+
+- Die Datei muss eine echte `.pdf`-Datei sein (keine gescannte Bilddatei ohne OCR)
+- Sehr alte oder passwortgeschützte PDFs werden möglicherweise nicht unterstützt
+
+### Windows blockiert die App ("SmartScreen-Filter")
+
+Das ist normal bei Apps ohne Signierungszertifikat. Klicke auf **Weitere Informationen** → **Trotzdem ausführen**.
+
+---
+
+## Systemanforderungen
+
+| | Minimum | Empfohlen |
+|---|---|---|
+| **Betriebssystem** | Windows 10 (64-Bit) | Windows 11 (64-Bit) |
+| **RAM** | 8 GB | 16 GB oder mehr |
+| **Speicherplatz** | 8 GB frei (für Modell) | 20 GB frei |
+| **GPU** | nicht nötig | NVIDIA GPU (schnellere Antworten) |
+
+> Die App selbst ist eine einzelne `.exe`-Datei (~80 MB) und benötigt keine Installation.
+
+---
+
+## Release Build erstellen (für Entwickler)
+
+```powershell
+# Self-contained: keine externe .NET Runtime nötig
+dotnet publish src/OllamaDashboard/OllamaDashboard.csproj `
+    -c Release -r win-x64 `
+    --self-contained true `
+    -p:PublishSingleFile=true
+
+# Updater
+dotnet publish src/OllamaDashboard.Updater/OllamaDashboard.Updater.csproj `
+    -c Release -r win-x64 `
+    --self-contained true `
+    -p:PublishSingleFile=true
+```
+
+Ausgabe: `src/OllamaDashboard/bin/Release/net8.0-windows/win-x64/publish/OllamaDashboard.exe`
+
+---
+
+## Projektstruktur (für Entwickler)
 
 ```
 ollama-dashboard/
 ├── OllamaDashboard.sln
-├── src/
-│   ├── OllamaDashboard/                       # Haupt-App (WPF)
-│   │   ├── App.xaml(.cs)                      # DI-Bootstrap
-│   │   ├── app.manifest                       # Windows/DPI settings
-│   │   ├── appsettings.json                   # Default-Config
-│   │   ├── Models/                            # ChatMessage, AppSettings, Ollama DTOs, UpdateInfo
-│   │   ├── Services/                          # OllamaService, PdfService, UpdateService, SettingsService
-│   │   ├── ViewModels/                        # MVVM (CommunityToolkit.Mvvm)
-│   │   ├── Views/                             # MainWindow + ChatView + ScriptExtractorView + SettingsView
-│   │   ├── Themes/                            # Colors.xaml, Styles.xaml
-│   │   ├── Converters/                        # WPF IValueConverters
-│   │   └── Assets/                            # icon.ico (hier einsetzen!)
-│   └── OllamaDashboard.Updater/               # Mini-Helfer für Self-Update
-├── installer/
-│   └── setup.iss                              # Inno Setup Script
-└── docs/                                      # Dokumentation
+└── src/
+    ├── OllamaDashboard/                  # Haupt-App (WPF / .NET 8)
+    │   ├── Models/                       # Datenmodelle (AppSettings, ChatMessage, Groq DTOs)
+    │   ├── Services/                     # OllamaService, GroqService, PdfService, UpdateService
+    │   ├── ViewModels/                   # MVVM (CommunityToolkit.Mvvm)
+    │   ├── Views/                        # XAML: MainWindow, Chat, ScriptExtractor, Settings
+    │   └── Themes/                       # Light/Dark Theme Ressourcen
+    └── OllamaDashboard.Updater/          # Self-Update Helfer
 ```
+
+**Technologie-Stack:**
+
+| Schicht | Tech |
+|---|---|
+| UI | WPF / XAML (.NET 8) |
+| MVVM | CommunityToolkit.Mvvm |
+| DI | Microsoft.Extensions.Hosting |
+| PDF-Extraktion | PdfPig (Apache 2.0) |
+| PDF-Export | QuestPDF (Community License) |
+| KI lokal | Ollama REST API |
+| KI Server | Groq API (OpenAI-kompatibel) |
+| Logging | Serilog → `%AppData%\OllamaDashboard\logs\` |
+| Updates | Velopack + GitHub Releases |
 
 ---
 
-## Voraussetzungen
+## Lizenz
 
-- **Windows 10 / 11** (x64)
-- **.NET 8 SDK** → https://dotnet.microsoft.com/download/dotnet/8.0
-- **Ollama** läuft lokal → https://ollama.com/download
-  - Standard-URL: `http://localhost:11434`
-  - Empfohlenes Start-Modell: `ollama pull llama3.1:8b` (~5 GB)
-- Für den Installer: **Inno Setup 6.2+** → https://jrsoftware.org/isdl.php
-
----
-
-## Erster Start in Cursor
-
-```bash
-# 1. Repo klonen / Dateien entpacken
-cd ollama-dashboard
-
-# 2. Abhängigkeiten holen
-dotnet restore
-
-# 3. Lauf!
-dotnet run --project src/OllamaDashboard
-```
-
-Beim ersten Start wird unter `%AppData%\OllamaDashboard\settings.json` eine Default-Konfig angelegt. Dort kannst du später direkt Hand anlegen, oder bequem über Einstellungen in der App.
-
-### Was du **vor dem ersten Build** anpassen solltest
-
-- `src/OllamaDashboard/appsettings.json` → `Update.GitHubOwner` + `Update.GitHubRepo` auf dein eigenes Repo setzen
-- `src/OllamaDashboard/OllamaDashboard.csproj` → `<Company>` und `<Copyright>` anpassen
-- `src/OllamaDashboard/Assets/icon.ico` → eigenes Icon hinterlegen (sonst schlägt der Build fehl → alternativ `<ApplicationIcon>`-Zeile entfernen)
-- `installer/setup.iss` → `MyAppPublisher`, `MyAppURL` und die GUID `AppId` ändern
-
----
-
-## Release + Update-Flow
-
-### 1. Release-Build erstellen
-
-```powershell
-# Haupt-App publizieren (self-contained:false → .NET Runtime wird vorausgesetzt)
-dotnet publish src/OllamaDashboard/OllamaDashboard.csproj `
-    -c Release -r win-x64 --no-self-contained `
-    /p:PublishSingleFile=false
-
-# Updater publizieren
-dotnet publish src/OllamaDashboard.Updater/OllamaDashboard.Updater.csproj `
-    -c Release -r win-x64 --no-self-contained
-```
-
-### 2. Installer bauen (optional, für Endnutzer)
-
-```powershell
-# Inno Setup Compiler
-iscc installer\setup.iss
-# → dist/OllamaDashboard-Setup-0.1.0.exe
-```
-
-### 3. GitHub Release anlegen
-
-1. Version in `OllamaDashboard.csproj` bumpen (`<Version>0.2.0</Version>`)
-2. Publish-Output der Haupt-App als ZIP packen (z. B. `OllamaDashboard-0.2.0.zip`)
-3. Git Tag: `git tag v0.2.0 && git push --tags`
-4. Auf GitHub: neues Release mit Tag `v0.2.0` anlegen, ZIP als Asset anhängen
-5. Die installierten Apps finden das Update beim nächsten Check automatisch
-
-### Update-Mechanik intern
-
-```
-[App.exe läuft] ── "Nach Updates suchen" ──▶ GitHub API (latest release)
-                                                     │
-                                                     ▼
-                                         Version-Vergleich (semver)
-                                                     │
-                                         Update verfügbar → Download ZIP
-                                                     │
-                                         Entpacken nach %TEMP%\OllamaDashboardUpdate\
-                                                     │
-                                         Updater.exe starten + App.exe beenden
-                                                     │
-                                                     ▼
-                          [Updater wartet 500ms] ──▶ Kopiert Dateien über Install-Folder
-                                                     │
-                                                     ▼
-                                         App.exe neu gestartet
-```
-
----
-
-## Architektur-Notizen
-
-| Schicht | Tech | Bemerkung |
-|---|---|---|
-| UI | WPF / XAML | Minimal-Design über `Themes/Colors.xaml` + `Themes/Styles.xaml` — dort anpassen |
-| MVVM | CommunityToolkit.Mvvm | `[ObservableProperty]` + `[RelayCommand]` Source-Generators |
-| DI | Microsoft.Extensions.Hosting | Bootstrap in `App.xaml.cs` |
-| HTTP | `HttpClientFactory` | Geteilter `HttpClient` pro Service |
-| PDF-Text | PdfPig | MIT, funktioniert offline, `ContentOrderTextExtractor` für sauberen Lesefluss |
-| PDF-Export | QuestPDF | MIT (Community-License), fluent API |
-| Logs | Serilog | `%AppData%\OllamaDashboard\logs\app-YYYYMMDD.log` |
-| Versioning | Semver | Für Tag-Vergleiche |
-
-### Wichtige Erweiterungs-Punkte
-
-**RAG statt Context-Stuffing.** Für sehr große PDFs (>40 000 Zeichen) schneidet `ChatViewModel.TruncateForContext` aktuell hart ab. Für Production: Chunking + Embeddings + Vector-Search. Ollama bietet `/api/embeddings`. Als lokaler Vector-Store eignet sich [`LiteDB`](https://www.litedb.org/) oder [`Qdrant`](https://qdrant.tech/) (als separater Container).
-
-**Authentifizierte GitHub-Releases.** Wenn du private Releases willst, erweitere `UpdateService`: GitHub Personal Access Token in den Auth-Header setzen. Achtung: Token nicht in der App einbetten — abfragbar über Login-Dialog oder Azure Key Vault.
-
-**Code Signing.** Für professionellen Einsatz: Setup.exe + OllamaDashboard.exe mit einem Code-Signing-Zertifikat signieren (`signtool sign`). SmartScreen beschwert sich sonst bei Endnutzern.
-
-**Dark Mode.** `AppSettings.Theme` ist bereits vorbereitet. Ein zweites `Colors.Dark.xaml` anlegen und beim Theme-Wechsel tauschen via `Application.Current.Resources.MergedDictionaries`.
-
----
-
-## Lizenz-Hinweis
-
-- **QuestPDF** nutzt die Community-License → kostenlos für Einzelpersonen, Startups (≤1 M USD Umsatz) und Open-Source. Bei kommerziellem Einsatz ggf. Lizenz prüfen: https://www.questpdf.com/license/
-- **PdfPig** — Apache 2.0, freie Nutzung
+- **QuestPDF** — Community License (kostenlos für Einzelpersonen & Open Source): https://www.questpdf.com/license/
+- **PdfPig** — Apache 2.0
 - **CommunityToolkit.Mvvm** — MIT
-- **Ollama-Modelle** haben je nach Modell eigene Lizenzen (Llama, Mistral, Gemma — alle unterschiedlich) — prüfen!
+- **Ollama-Modelle** — je nach Modell unterschiedlich (Llama, Mistral, Gemma); bitte eigenständig prüfen
