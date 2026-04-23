@@ -17,6 +17,7 @@
             <conv:ChatRoleToBrushConverter x:Key="ChatRoleToBrush" />
             <conv:ChatRoleToAlignmentConverter x:Key="ChatRoleToAlignment" />
             <conv:NullToBoolConverter x:Key="NullToBool" />
+            <conv:EnumEqualsConverter x:Key="EnumEquals" />
             <conv:BytesToSizeConverter x:Key="BytesToSize" />
             <conv:StringEqualsConverter x:Key="StringEquals" />
         </ResourceDictionary>

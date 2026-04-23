@@ -28,7 +28,7 @@ public partial class ScriptExtractorViewModel : ObservableObject
     private string _status = "Ziehe ein Skriptum hierher oder klicke 'PDF auswählen'.";
 
     [ObservableProperty]
-    private int _detailLevel = 3; // 1..5 maps to SummaryDetailLevel enum values
+    private int _detailLevel = 3;
 
     [ObservableProperty]
     private string _resultPreview = string.Empty;
@@ -41,6 +41,20 @@ public partial class ScriptExtractorViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _lastGeneratedPdfPath;
+
+    // --- Progress tracking -----------------------------------------------------
+
+    [ObservableProperty]
+    private double _extractionProgress;
+
+    [ObservableProperty]
+    private bool _isProgressIndeterminate = true;
+
+    [ObservableProperty]
+    private string _extractionStatusLabel = string.Empty;
+
+    private int _expectedOutputChars;
+    private int _receivedChars;
 
     // --- Feature 1: Targeted extraction ----------------------------------------
 
@@ -65,8 +79,12 @@ public partial class ScriptExtractorViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasModelRecommendation;
 
-    /// <summary>Model name passed as override to StreamChatAsync; null = use registry active model.</summary>
     private string? _recommendedModel;
+
+    // --- Advanced options expanded state ---------------------------------------
+
+    [ObservableProperty]
+    private bool _isAdvancedExpanded;
 
     // --- Computed props ---------------------------------------------------------
 
@@ -77,11 +95,11 @@ public partial class ScriptExtractorViewModel : ObservableObject
 
     public string DetailLevelLabel => DetailLevel switch
     {
-        1 => "Sehr kurz — nur Kernkonzepte (~5 %)",
-        2 => "Kurz — wichtigste Prüfungspunkte (~10 %)",
-        3 => "Mittel — ausgewogene Zusammenfassung (~20 %)",
-        4 => "Detailliert — mit Beispielen (~35 %)",
-        5 => "Sehr detailliert — fast vollständig (~50 %)",
+        1 => "Sehr kurz (~5 %)",
+        2 => "Kurz (~10 %)",
+        3 => "Mittel (~20 %)",
+        4 => "Detailliert (~35 %)",
+        5 => "Sehr detailliert (~50 %)",
         _ => "Mittel"
     };
 
@@ -206,7 +224,6 @@ public partial class ScriptExtractorViewModel : ObservableObject
             var extracted   = await _pdf.ExtractTextAsync(path);
             _styleGuideline = _analysis.AnalyzeReferenceStyle(extracted);
             ReferencePdfName = extracted.FileName;
-            _logger.LogInformation("Reference style loaded from {File}", extracted.FileName);
         }
         catch (Exception ex)
         {
@@ -221,27 +238,31 @@ public partial class ScriptExtractorViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ToggleAdvanced() => IsAdvancedExpanded = !IsAdvancedExpanded;
+
+    [RelayCommand]
     private void ClearReferencePdf()
     {
         _styleGuideline  = null;
         ReferencePdfName = null;
     }
 
-    // --- Extraction (runs pre-flight first, then streams) ----------------------
+    // --- Extraction (runs pre-flight first, then streams with retry) -----------
 
     [RelayCommand(CanExecute = nameof(CanExtract))]
     private async Task ExtractAsync()
     {
         if (LoadedPdf is null) return;
 
-        ResultPreview = string.Empty;
-        IsBusy        = true;
-        _cts          = new CancellationTokenSource();
+        ResultPreview          = string.Empty;
+        ExtractionProgress     = 0;
+        IsProgressIndeterminate = true;
+        ExtractionStatusLabel  = "Analysiere Skriptum…";
+        IsBusy                 = true;
+        _cts                   = new CancellationTokenSource();
 
         try
         {
-            // Feature 3: run pre-flight scan synchronously, then yield to let UI
-            // render the recommendation banner before the long streaming starts.
             RunPreFlightScan();
             await Task.Yield();
 
@@ -251,31 +272,97 @@ public partial class ScriptExtractorViewModel : ObservableObject
                 new ChatMessage { Role = ChatRole.User,   Content = BuildExtractionPrompt() }
             };
 
-            // Pass recommended model as override; null falls back to the registry's active model.
-            await foreach (var chunk in _ollama.StreamChatAsync(messages, _recommendedModel, _cts.Token))
-                ResultPreview += chunk;
+            var basePct = DetailLevel switch
+            {
+                1 => 5, 2 => 10, 3 => 20, 4 => 35, 5 => 50, _ => 20
+            };
+            _expectedOutputChars = Math.Max(1, LoadedPdf.CharacterCount * basePct / 100);
+            _receivedChars       = 0;
+
+            const int MaxRetries = 3;
+            for (var attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    if (attempt > 1)
+                    {
+                        ExtractionStatusLabel = $"Wiederhole Versuch {attempt}/{MaxRetries}…";
+                        await Task.Delay(TimeSpan.FromSeconds(2 * attempt), _cts.Token);
+                    }
+                    else
+                    {
+                        ExtractionStatusLabel = "Empfange Antwort…";
+                    }
+
+                    await StreamExtractionAsync(messages);
+                    break; // success
+                }
+                catch (OperationCanceledException)
+                {
+                    throw; // user cancel — propagate immediately
+                }
+                catch (Exception ex) when (attempt < MaxRetries)
+                {
+                    _logger.LogWarning(ex, "Extraction attempt {Attempt} failed, retrying", attempt);
+                    // Clear partial result for clean retry
+                    ResultPreview  = string.Empty;
+                    _receivedChars = 0;
+                }
+            }
         }
         catch (OperationCanceledException)
         {
             ResultPreview += "\n\n*[Abgebrochen]*";
+            ExtractionStatusLabel = "Abgebrochen";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Extraction failed");
+            _logger.LogError(ex, "Extraction failed after all retries");
+            ExtractionStatusLabel = "Fehler";
             MessageBox.Show(ex.Message, "Fehler bei der Extraktion",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
             IsBusy = false;
+            IsProgressIndeterminate = false;
+            ExtractionProgress = HasResult ? 100 : 0;
             _cts?.Dispose();
             _cts = null;
         }
     }
 
+    private async Task StreamExtractionAsync(ChatMessage[] messages)
+    {
+        var sb = new StringBuilder(capacity: _expectedOutputChars);
+        var chunkCount = 0;
+
+        IsProgressIndeterminate = false;
+
+        await foreach (var chunk in _ollama.StreamChatAsync(messages, _recommendedModel, _cts!.Token))
+        {
+            sb.Append(chunk);
+            _receivedChars += chunk.Length;
+            chunkCount++;
+
+            // Throttle UI updates to every 15 chunks to reduce allocations
+            if (chunkCount % 15 == 0)
+            {
+                var pct = Math.Min(99.0, _receivedChars * 100.0 / _expectedOutputChars);
+                ExtractionProgress    = pct;
+                ExtractionStatusLabel = $"Empfange Antwort… {pct:F0} %";
+                ResultPreview         = sb.ToString();
+            }
+        }
+
+        ResultPreview         = sb.ToString();
+        ExtractionProgress    = 100;
+        ExtractionStatusLabel = "Fertig";
+    }
+
     private bool CanExtract() => HasPdf && !IsBusy;
 
-    // --- Pre-flight scan (Feature 3) -------------------------------------------
+    // --- Pre-flight scan -------------------------------------------------------
 
     private void RunPreFlightScan()
     {
@@ -349,7 +436,7 @@ public partial class ScriptExtractorViewModel : ObservableObject
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName       = LastGeneratedPdfPath,
+                FileName        = LastGeneratedPdfPath,
                 UseShellExecute = true
             });
         }
@@ -365,9 +452,6 @@ public partial class ScriptExtractorViewModel : ObservableObject
     // Prompt engineering
     // =========================================================================
 
-    /// <summary>
-    /// System prompt, extended with style guideline when a reference PDF is loaded.
-    /// </summary>
     private string BuildSystemPrompt()
     {
         var sb = new StringBuilder();
@@ -377,7 +461,6 @@ public partial class ScriptExtractorViewModel : ObservableObject
             "Benutze `# Überschrift`, `## Unterüberschrift`, und `- Aufzählungspunkte`. " +
             "Formuliere klar, faktentreu und ohne Füllwörter.");
 
-        // Feature 2: inject reference-style guideline
         if (_styleGuideline is not null)
         {
             sb.AppendLine();
@@ -389,10 +472,6 @@ public partial class ScriptExtractorViewModel : ObservableObject
         return sb.ToString();
     }
 
-    /// <summary>
-    /// User prompt with detail-level target length, weighted focus topics (Feature 1),
-    /// and the full PDF text (hard-truncated for context window safety).
-    /// </summary>
     private string BuildExtractionPrompt()
     {
         var hasFocus = !string.IsNullOrWhiteSpace(FocusTopics);
@@ -404,7 +483,6 @@ public partial class ScriptExtractorViewModel : ObservableObject
 
         if (hasFocus)
         {
-            // Feature 1: weighted focus-topic distribution
             var topics = FocusTopics
                 .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -442,11 +520,6 @@ public partial class ScriptExtractorViewModel : ObservableObject
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Computes human-readable length targets.
-    /// When focus topics are active, focus content gets ~DetailLevel × 1.4× and
-    /// non-focus gets ~DetailLevel × 0.35× of the base percentage.
-    /// </summary>
     private (string total, string focus, string rest) ComputeLengthTargets(bool hasFocus)
     {
         var (basePct, focusFactor, restFactor) = DetailLevel switch

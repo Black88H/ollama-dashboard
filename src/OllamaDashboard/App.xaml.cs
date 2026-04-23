@@ -53,6 +53,7 @@ public partial class App : Application
             {
                 // Services (singletons so settings + HTTP clients are shared)
                 services.AddSingleton<ISettingsService, SettingsService>();
+                services.AddSingleton<IThemeService, ThemeService>();
                 services.AddSingleton<IPdfService, PdfService>();
                 services.AddSingleton<IModelRegistry, ModelRegistry>();
                 services.AddSingleton<IScriptAnalysisService, ScriptAnalysisService>();
@@ -82,6 +83,10 @@ public partial class App : Application
         // Load persisted settings before any VM touches them.
         var settings = Services.GetRequiredService<ISettingsService>();
         await settings.LoadAsync();
+
+        // Apply the saved theme before the window is shown.
+        var themeService = Services.GetRequiredService<IThemeService>();
+        themeService.Apply(settings.Current.Theme);
 
         // Fetch installed Ollama models in the background so the dropdown is pre-filled.
         var registry = Services.GetRequiredService<IModelRegistry>();

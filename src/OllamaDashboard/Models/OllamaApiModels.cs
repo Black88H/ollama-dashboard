@@ -59,6 +59,10 @@ public sealed class OllamaChatRequest
 
     [JsonPropertyName("options")]
     public OllamaOptions? Options { get; set; }
+
+    /// <summary>"-1" = keep model loaded indefinitely; prevents mid-session unloading.</summary>
+    [JsonPropertyName("keep_alive")]
+    public string KeepAlive { get; set; } = "-1";
 }
 
 public sealed class OllamaChatMessage
