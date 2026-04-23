@@ -17,8 +17,6 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
-        // Global safety net: catches any unhandled exception during startup and
-        // shows it in a MessageBox before the process exits silently.
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
             var msg = args.ExceptionObject is Exception ex ? ex.ToString() : args.ExceptionObject?.ToString();
@@ -26,104 +24,149 @@ public partial class App : Application
         };
         DispatcherUnhandledException += (_, args) =>
         {
-            MessageBox.Show(args.Exception.ToString(), "UI-Fehler beim Start",
+            MessageBox.Show(args.Exception.ToString(), "UI-Fehler",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
 
         try
         {
+            // ── Logging ───────────────────────────────────────────────────────
+            var logDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "OllamaDashboard", "logs");
+            Directory.CreateDirectory(logDir);
 
-        // Logging first, so anything that throws during DI is captured.
-        var logDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "OllamaDashboard", "logs");
-        Directory.CreateDirectory(logDir);
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .WriteTo.File(
+                    Path.Combine(logDir, "app-.log"),
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 14)
+                .CreateLogger();
 
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
-            .WriteTo.File(
-                Path.Combine(logDir, "app-.log"),
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14)
-            .CreateLogger();
+            // ── SQLCipher battery init (must come before any EF Core call) ───
+            SQLitePCL.Batteries_V2.Init();
 
-        Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
-            .ConfigureServices((_, services) =>
-            {
-                // Services (singletons so settings + HTTP clients are shared)
-                services.AddSingleton<ISettingsService, SettingsService>();
-                services.AddSingleton<IThemeService, ThemeService>();
-                services.AddSingleton<IPdfService, PdfService>();
-                services.AddSingleton<IModelRegistry, ModelRegistry>();
-                services.AddSingleton<IScriptAnalysisService, ScriptAnalysisService>();
-
-                services.AddHttpClient<IOllamaService, OllamaService>();
-                services.AddHttpClient<IGroqService, GroqService>();
-                // UpdateService uses Velopack internally (no HttpClient needed here)
-                services.AddSingleton<IUpdateService, UpdateService>();
-
-                // ViewModels
-                services.AddSingleton<MainViewModel>();
-                services.AddSingleton<ChatViewModel>();
-                services.AddSingleton<ScriptExtractorViewModel>();
-                services.AddSingleton<SettingsViewModel>();
-
-                // Views
-                services.AddSingleton<MainWindow>();
-            })
-            .ConfigureLogging(lb =>
-            {
-                lb.ClearProviders();
-                lb.AddSerilog(Log.Logger, dispose: true);
-            })
-            .Build();
-
-        await Host.StartAsync();
-
-        // Load persisted settings before any VM touches them.
-        var settings = Services.GetRequiredService<ISettingsService>();
-        await settings.LoadAsync();
-
-        // Apply the saved theme before the window is shown.
-        var themeService = Services.GetRequiredService<IThemeService>();
-        themeService.Apply(settings.Current.Theme);
-
-        // Fetch installed Ollama models in the background so the dropdown is pre-filled.
-        var registry = Services.GetRequiredService<IModelRegistry>();
-        _ = Task.Run(() => registry.RefreshAsync());
-
-        var mainWindow = Services.GetRequiredService<MainWindow>();
-        mainWindow.DataContext = Services.GetRequiredService<MainViewModel>();
-        mainWindow.Show();
-
-        // Optional: startup update check (fire-and-forget)
-        if (settings.Current.CheckUpdatesOnStartup)
-        {
-            _ = Task.Run(async () =>
-            {
-                try
+            // ── DI container ──────────────────────────────────────────────────
+            Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
+                .ConfigureServices((_, services) =>
                 {
-                    var updater = Services.GetRequiredService<IUpdateService>();
-                    var result = await updater.CheckForUpdateAsync();
-                    if (result.UpdateAvailable)
+                    // Core services
+                    services.AddSingleton<ISettingsService,      SettingsService>();
+                    services.AddSingleton<IThemeService,         ThemeService>();
+                    services.AddSingleton<IPdfService,           PdfService>();
+                    services.AddSingleton<IModelRegistry,        ModelRegistry>();
+                    services.AddSingleton<IScriptAnalysisService, ScriptAnalysisService>();
+                    services.AddSingleton<IUpdateService,        UpdateService>();
+
+                    // StudyCoach-specific services
+                    services.AddSingleton<IAuthService,          AuthService>();
+                    services.AddSingleton<IDatabaseService,      DatabaseService>();
+                    services.AddSingleton<ILicenseService,       LicenseService>();
+                    services.AddSingleton<IUserProgressService,  UserProgressService>();
+
+                    // HTTP services
+                    services.AddHttpClient<IOllamaService, OllamaService>();
+                    services.AddHttpClient<IGroqService,   GroqService>();
+
+                    // ViewModels
+                    services.AddSingleton<LoginViewModel>();
+                    services.AddSingleton<MainViewModel>();
+                    services.AddSingleton<DashboardViewModel>();
+                    services.AddSingleton<ChatViewModel>();
+                    services.AddSingleton<ScriptExtractorViewModel>();
+                    services.AddSingleton<SettingsViewModel>();
+
+                    // Views
+                    services.AddSingleton<LoginWindow>();
+                    services.AddSingleton<MainWindow>();
+                })
+                .ConfigureLogging(lb =>
+                {
+                    lb.ClearProviders();
+                    lb.AddSerilog(Log.Logger, dispose: true);
+                })
+                .Build();
+
+            await Host.StartAsync();
+
+            // ── Settings ──────────────────────────────────────────────────────
+            var settings = Services.GetRequiredService<ISettingsService>();
+            await settings.LoadAsync();
+
+            var themeService = Services.GetRequiredService<IThemeService>();
+            themeService.Apply(settings.Current.Theme);
+
+            // ── Authentication gate ───────────────────────────────────────────
+            var authService = Services.GetRequiredService<IAuthService>();
+            var loginVm     = Services.GetRequiredService<LoginViewModel>();
+            var loginWindow = Services.GetRequiredService<LoginWindow>();
+            loginWindow.DataContext = loginVm;
+
+            string? dbKey = null;
+
+            // Subscribe to success event to capture the derived DB key
+            loginVm.AuthSucceeded += (_, key) => dbKey = key;
+
+            var authResult = loginWindow.ShowDialog();
+            if (authResult != true || dbKey is null)
+            {
+                // User closed the window without authenticating
+                Shutdown();
+                return;
+            }
+
+            // ── Database init ─────────────────────────────────────────────────
+            var dbService = Services.GetRequiredService<IDatabaseService>();
+            await dbService.InitializeAsync(dbKey);
+
+            var user = await dbService.GetOrCreateUserAsync();
+
+            // Sync license tier from DB
+            if (Services.GetRequiredService<ILicenseService>() is LicenseService ls)
+                ls.SyncFromUser();
+
+            // ── Daily XP / Streak ─────────────────────────────────────────────
+            var progress = Services.GetRequiredService<IUserProgressService>();
+            await progress.OnDailyLoginAsync();
+
+            // ── Ollama model discovery (background) ───────────────────────────
+            var registry = Services.GetRequiredService<IModelRegistry>();
+            _ = Task.Run(() => registry.RefreshAsync());
+
+            // ── Show main window ──────────────────────────────────────────────
+            var mainWindow = Services.GetRequiredService<MainWindow>();
+            mainWindow.DataContext = Services.GetRequiredService<MainViewModel>();
+            mainWindow.Show();
+
+            // Kick off dashboard refresh now that we have data
+            _ = Services.GetRequiredService<DashboardViewModel>().RefreshAsync();
+
+            // ── Startup update check (fire-and-forget) ────────────────────────
+            if (settings.Current.CheckUpdatesOnStartup)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
                     {
-                        // The Settings view will display it when the user navigates there.
-                        var settingsVm = Services.GetRequiredService<SettingsViewModel>();
-                        Dispatcher.Invoke(() =>
-                            settingsVm.LastUpdateResult = result);
+                        var updater   = Services.GetRequiredService<IUpdateService>();
+                        var result    = await updater.CheckForUpdateAsync();
+                        if (result.UpdateAvailable)
+                        {
+                            var settingsVm = Services.GetRequiredService<SettingsViewModel>();
+                            Dispatcher.Invoke(() => settingsVm.LastUpdateResult = result);
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Log.Logger.Warning(ex, "Background update check failed");
-                }
-            });
+                    catch (Exception ex)
+                    {
+                        Log.Logger.Warning(ex, "Background update check failed");
+                    }
+                });
+            }
+
+            base.OnStartup(e);
         }
-
-        base.OnStartup(e);
-
-        } // end try
         catch (Exception ex)
         {
             MessageBox.Show(ex.ToString(), "Startfehler — Details",

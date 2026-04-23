@@ -1,0 +1,160 @@
+<UserControl x:Class="OllamaDashboard.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:OllamaDashboard.ViewModels"
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundBrush}"
+             d:DataContext="{d:DesignInstance Type=vm:DashboardViewModel}"
+             d:DesignHeight="700" d:DesignWidth="900">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="32,24" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel>
+
+                <!-- ── Welcome + XP ──────────────────────────────────────── -->
+                <Grid Margin="0,0,0,24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}">
+                            <Run Text="Willkommen, " />
+                            <Run Text="{Binding DisplayName}" />
+                            <Run Text="!" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource BodyMuted}" Margin="0,2,0,0">
+                            <Run Text="Level " />
+                            <Run Text="{Binding CurrentLevel}" FontWeight="SemiBold"
+                                 Foreground="{StaticResource AccentBrush}" />
+                            <Run Text=" · " />
+                            <Run Text="{Binding XpPoints, StringFormat='{}{0:N0} XP'}" />
+                            <Run Text=" / " />
+                            <Run Text="{Binding XpToNextLevel, StringFormat='{}{0:N0} XP'}" />
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Tier badge -->
+                    <Border Grid.Column="1" VerticalAlignment="Top"
+                            Background="{StaticResource AccentSubtleBrush}"
+                            CornerRadius="{StaticResource CornerMd}"
+                            Padding="10,4">
+                        <TextBlock Text="{Binding TierLabel}"
+                                   FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentBrush}" />
+                    </Border>
+                </Grid>
+
+                <!-- XP progress bar -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <TextBlock Text="XP-Fortschritt" FontSize="12"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBlock HorizontalAlignment="Right" FontSize="12"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Text="{Binding XpProgress, StringFormat='{}{0:F0} %'}" />
+                        </Grid>
+                        <ProgressBar Value="{Binding XpProgress}" Maximum="100"
+                                     Height="10">
+                            <ProgressBar.Style>
+                                <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                                    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                </Style>
+                            </ProgressBar.Style>
+                        </ProgressBar>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Stats row ─────────────────────────────────────────── -->
+                <TextBlock Text="Deine Statistiken" Style="{StaticResource Heading}"
+                           Margin="0,0,0,12" />
+                <UniformGrid Rows="1" Columns="4" Margin="0,0,0,24">
+                    <!-- Streak -->
+                    <Border Style="{StaticResource Card}" Margin="0,0,8,0">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="🔥" FontSize="24" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding StreakDays, StringFormat='{}{0} Tage'}"
+                                       FontSize="18" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Streak" Style="{StaticResource BodyMuted}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Subjects -->
+                    <Border Style="{StaticResource Card}" Margin="4,0,4,0">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="📚" FontSize="24" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding SubjectCount}"
+                                       FontSize="18" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Fächer" Style="{StaticResource BodyMuted}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Sessions -->
+                    <Border Style="{StaticResource Card}" Margin="4,0,4,0">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="💬" FontSize="24" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding SessionCount}"
+                                       FontSize="18" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Sitzungen" Style="{StaticResource BodyMuted}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Flashcards due -->
+                    <Border Style="{StaticResource Card}" Margin="8,0,0,0">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="🃏" FontSize="24" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding DueFlashcardCount}"
+                                       FontSize="18" FontWeight="Bold"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Karten fällig" Style="{StaticResource BodyMuted}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <!-- ── Quick actions ──────────────────────────────────────── -->
+                <TextBlock Text="Schnellzugriff" Style="{StaticResource Heading}"
+                           Margin="0,0,0,12" />
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource PrimaryButton}"
+                            Command="{Binding DataContext.NavigateToCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="Chat"
+                            Margin="0,0,8,0"
+                            Padding="16,10">
+                        PDF Chat starten
+                    </Button>
+                    <Button Style="{StaticResource SecondaryButton}"
+                            Command="{Binding DataContext.NavigateToCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="ScriptExtractor"
+                            Margin="0,0,8,0"
+                            Padding="16,10">
+                        Skript extrahieren
+                    </Button>
+                    <Button Style="{StaticResource SecondaryButton}"
+                            Command="{Binding RefreshCommand}"
+                            Padding="16,10">
+                        Aktualisieren
+                    </Button>
+                </StackPanel>
+
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>
