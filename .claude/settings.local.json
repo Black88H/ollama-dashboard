@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build *)",
-      "Bash(dotnet restore *)"
+      "Bash(dotnet restore *)",
+      "Bash(find \"/d/Desktop/ollama-dashboard/.claude/worktrees/relaxed-tesla-e08489/src/OllamaDashboard\" -name \"*.cs\" -exec wc -l {} +)",
+      "Bash(gh pr create --title 'feat: v2.1.0 — Groq API, Stabilitätsfixes, Anfänger-README' --body ' *)",
+      "Bash(where gh *)"
     ]
   }
 }

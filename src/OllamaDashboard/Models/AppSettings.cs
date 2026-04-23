@@ -25,7 +25,7 @@ public sealed class AppSettings
     // Groq API (free server-side AI, optional alternative to local Ollama)
     public string GroqApiKey { get; set; } = string.Empty;
     public string GroqModel { get; set; } = "llama-3.3-70b-versatile";
-    public bool UseGroqForExtraction { get; set; } = false;
+    public bool UseGroqForExtraction { get; set; } = true; // Groq ist Standard — fällt auf Ollama zurück wenn kein Key konfiguriert
 }
 
 public enum AppTheme
